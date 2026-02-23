@@ -48,7 +48,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             :user and :pass are named parameters.
             */
 
-            $stmt->exceute([
+            $stmt->execute([
                 'user' => $username,
                 'pass' => $hash
             ]);
@@ -75,7 +75,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 ?>
 
 <h2>Register</h2>
-<?php foreach ($error as $error): ?>
+<?php foreach ($errors as $error): ?>
     <p style="color:red;"><?php echo $error; ?><p>
 <?php endforeach; ?>
 
@@ -84,3 +84,4 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <input type="password" name="password" placeholder="Password" required><br><br>
     <button type="submit">Register</button>
 </form>
+<a href="login.php">Login</a>
