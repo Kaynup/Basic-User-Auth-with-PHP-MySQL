@@ -1,119 +1,315 @@
-'''
-Password Hashing Strategy (Demo Disclaimer)
+# Basic User Authentication System (PHP + MySQL + PDO)
 
-This project uses SHA2() for hashing passwords inside MySQL:
+## Overview
 
-SHA2(password, 256)
-Why SHA2 Is Not Recommended for Production
+This project implements a session-based authentication system using:
 
-SHA2 is a fast cryptographic hashing algorithm. While it is secure for data integrity verification, it is not suitable for password storage in real-world applications because:
+- PHP 8
+- MySQL
+- PDO (PHP Data Objects)
+- SHA-256 password hashing
+- Native PHP sessions
 
-It is computationally fast (vulnerable to brute-force attacks)
+The system provides user registration, login, protected dashboard access, and logout functionality.
 
-It does not include automatic salting
+---
 
-It does not provide adaptive work factors
+## Project Structure
 
-It is vulnerable to rainbow table attacks
+```
+.
+├── dashboard.php
+├── db.php
+├── demobase.sql
+├── login.php
+├── logout.php
+├── phase1_changes.sql
+├── register.php
+└── README.md
+```
 
-Modern authentication systems should use:
+---
 
-password_hash() in PHP (bcrypt or Argon2)
+## Database Design
 
-Adaptive hashing algorithms with built-in salting
+### Database: `demobase`
 
-Configurable cost factors
+### Table: `basic_user_auth`
 
-Why It Is Used Here
+```sql
+CREATE TABLE basic_user_auth (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user VARCHAR(100) NOT NULL UNIQUE,
+    pass VARCHAR(255) NOT NULL,
+    creation_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    role VARCHAR(20) DEFAULT 'user'
+);
+```
 
-SHA2 is used in this project strictly for:
+### Column Description
 
-Demonstration purposes
+| Column | Type | Purpose |
+|--------|------|----------|
+| `id` | INT AUTO_INCREMENT | Unique identifier (primary key) |
+| `user` | VARCHAR(100) UNIQUE | Username |
+| `pass` | VARCHAR(255) | SHA-256 hashed password |
+| `creation_time` | TIMESTAMP | Account creation time |
+| `role` | VARCHAR(20) | Authorization role (`admin` or `user`) |
 
-Understanding authentication flow
+### Initial Data
 
-Practicing PDO and session handling
+```sql
+INSERT INTO basic_user_auth(user, pass)
+VALUES
+('Shipman', SHA2('shipman@1278', 256)),
+('Versatile', SHA2('vertyg#**9012', 256));
+```
 
-Educational experimentation
+Role assignment:
 
-This project is not intended for production deployment.
-'''
+```sql
+ALTER TABLE basic_user_auth ADD COLUMN role VARCHAR(20) DEFAULT 'user';
 
+UPDATE basic_user_auth
+SET role = 'admin' WHERE user = 'Shipman';
+```
 
-'''
+---
 
-PHASE 1 — Complete Core Authentication Properly
-
-Goal: Convert your demo into a clean, minimal, structured authentication system.
-
-We will implement:
-
-Registration
-
-Server-side validation
-
-Secure login flow
-
-Session regeneration
-
-Basic architecture cleanup
-'''
+## Authentication Flow
 
 ```mermaid
 flowchart TD
 
     Browser[Browser]
 
-    login[login.php]
-    PDO[PDO]
-    DB[(MySQL demobase.users)]
-    verify[verify_password]
+    Register[register.php]
+    Login[login.php]
+    DB[(MySQL: basic_user_auth)]
+    Dashboard[dashboard.php]
+    Logout[logout.php]
 
-    session[Create Session Variables]
-    uid[user_id]
-    uname[username]
+    Session[PHP Session Storage]
 
-    dash["dashboard.php<br/>protected: checks session"]
+    Browser --> Register
+    Register -->|POST| DB
+    Register <--> Login
 
-    logout[logout.php]
-    terminate[Terminate Session]
+    Browser --> Login
+    Login -->|SELECT user| DB
+    Login -->|Valid Credentials| Session
+    Session --> Dashboard
 
+    Dashboard -->|Logout| Logout
+    Logout -->|New session Initiation| Login
 
-    Browser --> login
-
-    login -->|POST| PDO
-    PDO --> DB
-    DB --> verify
-
-    verify -->|success| session
-
-    session --> uid
-    session --> uname
-
-    uid --> dash
-    uname --> dash
-
-    dash -->|logout| logout
-    logout --> terminate
-    terminate --> login
-
-
-    %% Color definitions
     classDef client fill:#E3F2FD,stroke:#1E88E5,stroke-width:2px,color:#0D47A1;
     classDef php fill:#E8F5E9,stroke:#43A047,stroke-width:2px,color:#1B5E20;
-    classDef database fill:#FFF3E0,stroke:#FB8C00,stroke-width:2px,color:#E65100;
-    classDef security fill:#FCE4EC,stroke:#D81B60,stroke-width:2px,color:#880E4F;
+    classDef db fill:#FFF3E0,stroke:#FB8C00,stroke-width:2px,color:#E65100;
     classDef session fill:#F3E5F5,stroke:#8E24AA,stroke-width:2px,color:#4A148C;
 
-
-    %% Apply colors
     class Browser client;
-
-    class login,dash,logout php;
-
-    class PDO,verify security;
-
-    class DB database;
-
-    class session,uid,uname,terminate session;
+    class Register,Login,Dashboard,Logout php;
+    class DB db;
+    class Session session;
 ```
+
+---
+
+## File Responsibilities
+
+### `db.php`
+
+Establishes a PDO connection to MySQL.
+
+```php
+$pdo = new PDO($dsn, $dbUser, $dbPass);
+$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+```
+
+- Uses DSN with UTF-8 encoding.
+- Enables exception-based error handling.
+- Provides `$pdo` object to other scripts.
+
+---
+
+### `register.php`
+
+Handles:
+
+- Input validation
+- Password hashing
+- User insertion
+- Duplicate handling
+- Redirect to login
+
+Key operations:
+
+```php
+$username = trim($_POST["username"]);
+$password = $_POST["password"];
+```
+
+```php
+$hash = hash('sha256', $password);
+```
+
+```php
+$stmt = $pdo->prepare(
+    "INSERT INTO basic_user_auth(user, pass)
+     VALUES (:user, :pass)"
+);
+```
+
+- Uses prepared statements.
+- Hashes password using SHA-256.
+- Redirects via `header("Location: login.php");`.
+
+---
+
+### `login.php`
+
+Handles:
+
+- POST validation
+- User lookup
+- Hash comparison
+- Session initialization
+- Redirect to dashboard
+
+Password verification:
+
+```php
+if ($user && hash('sha256', $password) === $user['pass'])
+```
+
+Session hardening:
+
+```php
+session_regenerate_id(true);
+```
+
+Session variables set:
+
+```php
+$_SESSION['user_id']
+$_SESSION['username']
+$_SESSION['role']
+```
+
+---
+
+### `dashboard.php`
+
+Protected route.
+
+Access control:
+
+```php
+if (!isset($_SESSION['user_id'])) {
+    header("Location: login.php");
+    exit;
+}
+```
+
+Displays:
+
+- Logged-in username
+- Role
+- Logout link
+
+Uses `htmlspecialchars()` to prevent output injection.
+
+---
+
+### `logout.php`
+
+Terminates session:
+
+```php
+$_SESSION = [];
+session_destroy();
+header("Location: login.php");
+```
+
+Clears session state and redirects to login.
+
+---
+
+## Session Management
+
+- `session_start()` initializes session handling.
+- Session variables store authenticated identity.
+- `session_regenerate_id(true)` prevents session fixation.
+- Protected pages verify session existence before rendering.
+
+---
+
+## Password Handling
+
+Passwords are hashed using:
+
+```php
+hash('sha256', $password);
+```
+
+Database stores only hashed values.
+
+Login compares hashed input with stored hash.
+
+---
+
+## PDO Usage
+
+All database interactions use prepared statements:
+
+```php
+$stmt = $pdo->prepare("...");
+$stmt->execute([...]);
+```
+
+This ensures:
+
+- Parameter binding
+- SQL injection resistance
+- Exception-driven error handling
+
+---
+
+## Request Handling
+
+All form processing is gated by:
+
+```php
+if ($_SERVER["REQUEST_METHOD"] === "POST")
+```
+
+This ensures:
+
+- Logic executes only on POST submission.
+- Direct GET access does not trigger database operations.
+
+---
+
+## Access Control Model
+
+Authentication:
+- Username + password verification.
+
+Authorization:
+- Role stored in `role` column.
+- Session stores user role.
+- Dashboard displays current role.
+
+---
+
+## System Characteristics
+
+- Session-based authentication
+- Server-side validation
+- SHA-256 password hashing
+- Unique username constraint
+- Prepared statements via PDO
+- Redirect-based navigation
+- Role attribute stored per user
+- Auto-increment primary key
