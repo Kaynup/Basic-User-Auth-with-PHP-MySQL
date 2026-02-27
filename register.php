@@ -205,7 +205,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <form method="POST">
         <div class="form-group">
             <label for="username">Username</label>
-            <input id="username" name="username" required>
+            <input id="username" name="username" value="<?php echo htmlspecialchars($_POST["username"] ?? ''); ?>" required>
         </div>
 
         <div class="form-group">
