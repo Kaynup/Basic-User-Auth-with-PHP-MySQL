@@ -20,14 +20,19 @@ $errors = [];
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $username = trim($_POST["username"]);   // trim() removes leading and trailing white spaces to match the strings
     $password = $_POST["password"];
+    $confirm_pass = $_POST["cpassword"];
 
     // Validations
     if (strlen($username) < 3) {
         $errors[] = "Username must be at least 3 characters.";
     }
 
-    if (strlen($password) < 6) {
+    if ((strlen($password) < 6) || (strlen($confirm_pass) < 6)) {
         $errors[] = "Password must be at least 6 characters.";
+    }
+
+    if (!hash_equals($password, $confirm_pass)) {
+        $errors[] = "Passwords do not match.";
     }
 
     if (empty($errors)) {
@@ -206,6 +211,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         <div class="form-group">
             <label for="password">Password</label>
             <input type="password" id="password" name="password" required>
+        </div>
+
+        <div class="form-group">
+            <label for="password">Confirm password</label>
+            <input type="password" id="cpassword" name="cpassword" required>
         </div>
 
         <button type="submit">Register</button>
